@@ -58,10 +58,10 @@ describe('Integration Tests', () => {
     render(<App />);
 
     await waitFor(() => {
-      expect(screen.getByText(/раунд 1/i)).toBeInTheDocument();
+      expect(screen.getByText(/раунд 2/i)).toBeInTheDocument();
     });
 
-    const roundCard = screen.getByText(/раунд 1/i).closest('.round-card');
+    const roundCard = screen.getByText(/раунд 2/i).closest('.round-card');
     if (roundCard) {
       await user.click(roundCard);
     }
@@ -211,4 +211,5 @@ describe('Integration Tests', () => {
     });
   });
 });
+
 

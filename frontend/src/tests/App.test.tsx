@@ -81,11 +81,7 @@ describe('App Component', () => {
   });
 
   it('should protect routes when not authenticated', async () => {
-    render(
-      <BrowserRouter>
-        <App />
-      </BrowserRouter>
-    );
+    render(<App />);
 
     await waitFor(() => {
       expect(screen.getByLabelText(/имя игрока/i)).toBeInTheDocument();

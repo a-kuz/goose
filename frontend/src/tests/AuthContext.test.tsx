@@ -89,8 +89,10 @@ describe('AuthContext', () => {
 
       await result.current.login('testuser');
 
-      expect(api.setToken).toHaveBeenCalledWith('new-token');
-      expect(result.current.user).toEqual(mockUser);
+      await waitFor(() => {
+        expect(api.setToken).toHaveBeenCalledWith('new-token');
+        expect(result.current.user).toEqual(mockUser);
+      });
     });
 
     it('should logout successfully', async () => {
@@ -107,8 +109,10 @@ describe('AuthContext', () => {
 
       result.current.logout();
 
-      expect(api.clearToken).toHaveBeenCalled();
-      expect(result.current.user).toBeNull();
+      await waitFor(() => {
+        expect(api.clearToken).toHaveBeenCalled();
+        expect(result.current.user).toBeNull();
+      });
     });
   });
 });
