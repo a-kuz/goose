@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import styles from '../styles/Login.module.css';
 
 export function Login() {
   const [username, setUsername] = useState('');
@@ -14,36 +15,35 @@ export function Login() {
 
     try {
       await login(username);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Login failed');
+    } catch (err: any) {
+      setError(err.message || 'Failed to login');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="login-page">
-      <div className="login-card">
+    <div className={styles.loginPage}>
+      <div className={styles.loginCard}>
         <h2>The Last of Guss</h2>
-        {error && <div className="error">{error}</div>}
+        {error && <div className={styles.error}>{error}</div>}
         <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label htmlFor="username">Имя игрока</label>
+          <div className={styles.formGroup}>
+            <label htmlFor="username">Имя пользователя</label>
             <input
-              type="text"
               id="username"
+              type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="Введите ваше имя"
               required
+              autoFocus
             />
           </div>
-          <button type="submit" className="btn btn-primary btn-full" disabled={loading}>
-            {loading ? 'Вход...' : 'Войти'}
+          <button type="submit" className={`${styles.btn} ${styles.btnPrimary}`} disabled={loading}>
+            {loading ? 'Загрузка...' : 'Войти'}
           </button>
         </form>
       </div>
     </div>
   );
 }
-

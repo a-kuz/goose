@@ -16,14 +16,14 @@ export async function tapRoutes(fastify: FastifyInstance) {
     }
 
     try {
-      const stats = await TapService.processTap(user.userId, roundId, user.role);
+      const stats = await TapService.processTap(user.id, roundId, user.role);
       
       wsClients.forEach((client) => {
         if (client.readyState === 1) {
           client.send(JSON.stringify({
             type: 'tap',
             roundId,
-            userId: user.userId,
+            userId: user.id,
             stats,
           }));
         }
@@ -31,7 +31,7 @@ export async function tapRoutes(fastify: FastifyInstance) {
 
       await BroadcastService.publishTap({
         roundId,
-        userId: user.userId,
+        userId: user.id,
         stats,
       });
 

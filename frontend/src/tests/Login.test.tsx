@@ -3,7 +3,6 @@ import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Login } from '../components/Login';
 import { render } from './utils';
-import * as AuthContext from '../context/AuthContext';
 
 const mockLogin = vi.fn();
 

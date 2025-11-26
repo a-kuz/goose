@@ -13,4 +13,3 @@ export const config = {
   cooldownDuration: parseInt(process.env.COOLDOWN_DURATION || '30', 10),
   databaseUrl,
 };
-

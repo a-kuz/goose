@@ -1,9 +1,12 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { GameProvider } from './context/GameContext';
+import { RoundsProvider } from './context/RoundsContext';
 import { Login } from './components/Login';
 import { RoundsList } from './components/RoundsList';
 import { RoundGame } from './components/RoundGame';
-import './App.css';
+import styles from './styles/Header.module.css';
+import './styles/global.css';
 
 function Header() {
   const { user, logout } = useAuth();
@@ -11,11 +14,11 @@ function Header() {
   if (!user) return null;
 
   return (
-    <header className="header">
+    <header className={styles.header}>
       <h1>The Last of Guss</h1>
-      <div className="header-right">
-        <span className="username">{user.username}</span>
-        <button onClick={logout} className="btn btn-danger">
+      <div className={styles.headerRight}>
+        <span className={styles.username}>{user.username}</span>
+        <button onClick={logout} className={`${styles.btn} ${styles.btnDanger}`}>
           Выйти
         </button>
       </div>
@@ -54,7 +57,9 @@ function AppRoutes() {
         path="/"
         element={
           <ProtectedRoute>
-            <RoundsList />
+            <RoundsProvider>
+              <RoundsList />
+            </RoundsProvider>
           </ProtectedRoute>
         }
       />
@@ -62,7 +67,9 @@ function AppRoutes() {
         path="/round/:id"
         element={
           <ProtectedRoute>
-            <RoundGame />
+            <GameProvider userId={user?.id}>
+              <RoundGame />
+            </GameProvider>
           </ProtectedRoute>
         }
       />
@@ -85,4 +92,3 @@ function App() {
 }
 
 export default App;
-

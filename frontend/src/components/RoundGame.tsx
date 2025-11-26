@@ -1,217 +1,48 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
-import type { CSSProperties } from 'react';
+import { useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { api } from '../api';
-import { Round, RoundStatus, PlayerStats } from '../types';
-import { useAuth } from '../context/AuthContext';
+import { RoundStatus } from '../types';
 import { useWebSocket } from '../hooks/useWebSocket';
-
-type ParticleStyle = CSSProperties & {
-  [key: string]: string | number | undefined;
-};
-
-type Particle = {
-  id: string;
-  style: ParticleStyle;
-  duration: number;
-};
+import { useGame } from '../context/GameContext';
+import styles from '../styles/RoundGame.module.css';
 
 export function RoundGame() {
   const { id } = useParams<{ id: string }>();
-  const [round, setRound] = useState<Round | null>(null);
-  const [myStats, setMyStats] = useState<PlayerStats | null>(null);
-  const [timeLeft, setTimeLeft] = useState<number>(0);
-  const [loading, setLoading] = useState(true);
-  const [particles, setParticles] = useState<Particle[]>([]);
-  const [isSpinning, setIsSpinning] = useState(false);
-  const previousScoreRef = useRef(0);
-  const { user } = useAuth();
   const { lastMessage, status: wsStatus } = useWebSocket();
+  const {
+    round,
+    myStats,
+    timeLeft,
+    loading,
+    particles,
+    isSpinning,
+    loadRound,
+    handleTap,
+    spawnParticles,
+    getProgressPercent,
+    getPlayerPosition,
+  } = useGame();
+
   const cardRef = useRef<HTMLDivElement | null>(null);
   const gooseRef = useRef<HTMLDivElement | null>(null);
   const scoreRef = useRef<HTMLDivElement | null>(null);
-  const timeoutsRef = useRef<number[]>([]);
-  const serverTimeOffsetRef = useRef<number>(0);
-
-  useEffect(() => {
-    return () => {
-      timeoutsRef.current.forEach((timeoutId) => window.clearTimeout(timeoutId));
-      timeoutsRef.current = [];
-    };
-  }, []);
-
-  const spawnParticles = useCallback(() => {
-    if (!cardRef.current || !gooseRef.current || !scoreRef.current) {
-      return;
-    }
-
-    const cardRect = cardRef.current.getBoundingClientRect();
-    const gooseRect = gooseRef.current.getBoundingClientRect();
-    const scoreRect = scoreRef.current.getBoundingClientRect();
-
-    const startX = gooseRect.left + gooseRect.width / 2 - cardRect.left;
-    const startY = gooseRect.top + gooseRect.height / 2 - cardRect.top;
-    const endX = scoreRect.left + scoreRect.width / 2 - cardRect.left;
-    const endY = scoreRect.top + scoreRect.height / 2 - cardRect.top;
-
-    const count = 14;
-
-    const newParticles = Array.from({ length: count }).map((_, index) => {
-      const jitterX = (Math.random() - 0.5) * 80;
-      const jitterY = (Math.random() - 0.5) * 30;
-      const dx = endX - startX + jitterX;
-      const dy = endY - startY + jitterY;
-      const midX = dx * 0.55;
-      const midY = dy * 0.55;
-      const arc = -30 - Math.random() * 40;
-      const duration = 650 + Math.random() * 500;
-      const delay = Math.random() * 80;
-      const size = 4 + Math.random() * 4;
-      const color = `hsl(${30 + Math.random() * 26}deg, 92%, ${58 + Math.random() * 16}%)`;
-      const rotation = `${Math.random() * 180}deg`;
-      const id = `tap-${Date.now()}-${index}-${Math.random()}`;
-
-      const style: ParticleStyle = {
-        left: `${startX}px`,
-        top: `${startY}px`,
-        width: `${size}px`,
-        height: `${size}px`,
-        animationDuration: `${duration}ms`,
-        animationDelay: `${delay}ms`,
-        background: color,
-        '--dx': `${dx}px`,
-        '--dy': `${dy}px`,
-        '--dx-mid': `${midX}px`,
-        '--dy-mid': `${midY}px`,
-        '--arc': `${arc}px`,
-        '--particle-rotation': rotation,
-      };
-
-      return {
-        id,
-        style,
-        duration: duration + delay,
-      };
-    });
-
-    setParticles((prev) => [...prev, ...newParticles]);
-
-    newParticles.forEach((particle) => {
-      const timeoutId = window.setTimeout(() => {
-        setParticles((prev) => prev.filter((item) => item.id !== particle.id));
-        timeoutsRef.current = timeoutsRef.current.filter((stored) => stored !== timeoutId);
-      }, particle.duration + 60);
-      timeoutsRef.current.push(timeoutId);
-    });
-  }, [timeoutsRef]);
-
-  const calculateTimeLeft = useCallback((roundData: Round) => {
-    const now = new Date().getTime() + serverTimeOffsetRef.current;
-    const start = new Date(roundData.startTime).getTime();
-    const end = new Date(roundData.endTime).getTime();
-
-    if (roundData.status === RoundStatus.COOLDOWN) {
-      return Math.max(0, Math.floor((start - now) / 1000));
-    } else if (roundData.status === RoundStatus.ACTIVE) {
-      return Math.max(0, Math.floor((end - now) / 1000));
-    } else {
-      return 0;
-    }
-  }, []);
-
-  const loadRound = useCallback(async () => {
-    if (!id) return;
-
-    try {
-      const data = await api.getRound(id);
-      
-      if (data.serverTime) {
-        const serverTime = new Date(data.serverTime).getTime();
-        const localTime = new Date().getTime();
-        serverTimeOffsetRef.current = serverTime - localTime;
-      }
-      
-      setRound(data);
-
-      if (user?.id) {
-        const userStats = data.playerStats?.find(
-          (s: PlayerStats) => s.userId === user.id
-        );
-        const currentScore = userStats?.score || 0;
-        const previousScore = previousScoreRef.current;
-
-        if (currentScore > previousScore && currentScore !== 0 && currentScore % 10 === 0) {
-          setIsSpinning(true);
-          setTimeout(() => setIsSpinning(false), 800);
-        }
-
-        previousScoreRef.current = currentScore;
-        setMyStats(userStats || null);
-      } else {
-        previousScoreRef.current = 0;
-        setMyStats(null);
-      }
-
-      setTimeLeft(calculateTimeLeft(data));
-    } catch (error) {
-      console.error('Failed to load round:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [id, spawnParticles, user?.id, calculateTimeLeft]);
 
   useEffect(() => {
     if (!id) return;
-    loadRound();
+    loadRound(id);
   }, [id, loadRound]);
 
   useEffect(() => {
-    if (!round) return;
-
-    const timerInterval = setInterval(() => {
-      setTimeLeft(calculateTimeLeft(round));
-    }, 1000);
-
-    const now = new Date().getTime() + serverTimeOffsetRef.current;
-    const start = new Date(round.startTime).getTime();
-    const end = new Date(round.endTime).getTime();
-
-    let statusChangeTimeout: number | undefined;
-
-    if (round.status === RoundStatus.COOLDOWN && start > now) {
-      statusChangeTimeout = window.setTimeout(() => {
-        loadRound();
-      }, start - now + 100);
-    } else if (round.status === RoundStatus.ACTIVE && end > now) {
-      statusChangeTimeout = window.setTimeout(() => {
-        loadRound();
-      }, end - now + 100);
-    }
-
-    return () => {
-      clearInterval(timerInterval);
-      if (statusChangeTimeout !== undefined) {
-        clearTimeout(statusChangeTimeout);
-      }
-    };
-  }, [round, calculateTimeLeft, loadRound]);
-
-  useEffect(() => {
     if (lastMessage?.type === 'tap' && lastMessage.roundId === id) {
-      loadRound();
+      loadRound(id!, true);
     }
   }, [lastMessage, id, loadRound]);
 
-  const handleTap = async () => {
+  const onTap = async (e?: React.MouseEvent) => {
+    e?.preventDefault();
+    e?.stopPropagation();
     if (!id || !round || round.status !== RoundStatus.ACTIVE) return;
-
-    try {
-      spawnParticles();
-      await api.tap(id);
-      await loadRound();
-    } catch (error) {
-      console.error('Tap failed:', error);
-    }
+    spawnParticles(cardRef, gooseRef, scoreRef);
+    await handleTap(id);
   };
 
   const formatTime = (seconds: number) => {
@@ -233,40 +64,10 @@ export function RoundGame() {
     }
   };
 
-  const getProgressPercent = () => {
-    if (!round) return 0;
-    
-    const now = new Date().getTime() + serverTimeOffsetRef.current;
-    
-    if (round.status === RoundStatus.ACTIVE) {
-      const start = new Date(round.startTime).getTime();
-      const end = new Date(round.endTime).getTime();
-      const total = end - start;
-      const remaining = end - now;
-      return Math.max(0, Math.min(100, (remaining / total) * 100));
-    }
-    
-    if (round.status === RoundStatus.COOLDOWN) {
-      const start = new Date(round.startTime).getTime();
-      const cooldownStart = new Date(round.cooldownEnd).getTime();
-      const total = start - cooldownStart;
-      const remaining = start - now;
-      return Math.max(0, Math.min(100, (remaining / total) * 100));
-    }
-    
-    return 0;
-  };
-
-  const getPlayerPosition = () => {
-    if (!round || !myStats || !round.playerStats) return null;
-    const position = round.playerStats.findIndex(s => s.userId === user?.id) + 1;
-    return position > 0 ? position : null;
-  };
-
   const renderGoose = () => {
     if (!round) {
       return (
-        <svg className="goose-svg" viewBox="0 0 200 200">
+        <svg className={styles.gooseSvg} viewBox="0 0 200 200">
           <ellipse cx="100" cy="140" rx="50" ry="30" fill="#FFA500" />
           <ellipse cx="100" cy="100" rx="60" ry="50" fill="#FFD700" />
           <ellipse cx="100" cy="60" rx="40" ry="35" fill="#FFD700" />
@@ -280,7 +81,7 @@ export function RoundGame() {
     
     if (round.status === RoundStatus.FINISHED) {
       return (
-        <svg className="goose-svg" viewBox="0 0 200 200">
+        <svg className={styles.gooseSvg} viewBox="0 0 200 200">
           <ellipse cx="100" cy="140" rx="50" ry="30" fill="#FFA500" />
           <ellipse cx="100" cy="100" rx="60" ry="50" fill="#FFD700" />
           <ellipse cx="100" cy="60" rx="40" ry="35" fill="#FFD700" />
@@ -297,7 +98,7 @@ export function RoundGame() {
     
     if (round.status === RoundStatus.COOLDOWN) {
       return (
-        <svg className="goose-svg" viewBox="0 0 200 200">
+        <svg className={styles.gooseSvg} viewBox="0 0 200 200">
           <ellipse cx="100" cy="140" rx="50" ry="30" fill="#CCC" />
           <ellipse cx="100" cy="100" rx="60" ry="50" fill="#DDD" />
           <ellipse cx="95" cy="80" rx="45" ry="40" fill="#DDD" />
@@ -311,7 +112,7 @@ export function RoundGame() {
     }
 
     return (
-      <svg className="goose-svg" viewBox="0 0 200 200">
+      <svg className={styles.gooseSvg} viewBox="0 0 200 200">
         <ellipse cx="100" cy="140" rx="50" ry="30" fill="#FFA500" />
         <ellipse cx="100" cy="100" rx="60" ry="50" fill="#FFD700" />
         <ellipse cx="100" cy="60" rx="40" ry="35" fill="#FFD700" />
@@ -334,26 +135,33 @@ export function RoundGame() {
   const winner = round.playerStats?.[0];
 
   return (
-    <div className="game-page">
-      <div className="game-card" ref={cardRef}>
-        <div className="particle-layer">
+    <div className={styles.gamePage}>
+      <div className={styles.gameCard} ref={cardRef}>
+        <div className={styles.particleLayer}>
           {particles.map((particle) => (
             <span
               key={particle.id}
-              className="particle"
+              className={styles.particle}
               style={particle.style}
             />
           ))}
         </div>
-        <div className="game-header">
-          <Link to="/" className="back-link">← Раунды</Link>
-          <div className="header-right">
+        <div className={styles.gameHeader}>
+          <Link to="/" className={styles.backLink}>← Раунды</Link>
+          <div className={styles.headerRight}>
             {round.status === RoundStatus.ACTIVE && getPlayerPosition() !== null && (
-              <span className="player-position">
+              <span className={styles.playerPosition}>
                 {getPlayerPosition() === 1 ? '🥇' : `#${getPlayerPosition()}`}
               </span>
             )}
-            <span className={`ws-status ws-status-${wsStatus}`} title={`WebSocket: ${wsStatus}`}>
+            <span 
+              className={`${styles.wsStatus} ${
+                wsStatus === 'connected' ? styles.wsStatusConnected :
+                wsStatus === 'connecting' ? styles.wsStatusConnecting :
+                styles.wsStatusDisconnected
+              }`} 
+              title={`WebSocket: ${wsStatus}`}
+            >
               {wsStatus === 'connected' && '●'}
               {wsStatus === 'connecting' && '○'}
               {wsStatus === 'disconnected' && '○'}
@@ -362,10 +170,10 @@ export function RoundGame() {
         </div>
 
         {(round.status === RoundStatus.ACTIVE || round.status === RoundStatus.COOLDOWN) && (
-          <div className="timer-container">
-            <svg className="timer-circle" viewBox="0 0 120 120">
+          <div className={styles.timerContainer}>
+            <svg className={styles.timerCircle} viewBox="0 0 120 120">
               <circle
-                className="timer-bg"
+                className={styles.timerBg}
                 cx="60"
                 cy="60"
                 r="54"
@@ -374,7 +182,7 @@ export function RoundGame() {
                 strokeWidth="8"
               />
               <circle
-                className="timer-progress"
+                className={styles.timerProgress}
                 cx="60"
                 cy="60"
                 r="54"
@@ -383,55 +191,55 @@ export function RoundGame() {
                 strokeWidth="8"
                 strokeLinecap="round"
                 strokeDasharray={`${2 * Math.PI * 54}`}
-                strokeDashoffset={`${2 * Math.PI * 54 * (1 - getProgressPercent() / 100)}`}
+                strokeDashoffset={`${2 * Math.PI * 54 * (1 - getProgressPercent(round) / 100)}`}
                 transform="rotate(-90 60 60)"
               />
             </svg>
-            <div className="timer-text">
-              <div className="timer-value">{formatTime(timeLeft)}</div>
-              <div className="timer-label">
+            <div className={styles.timerText}>
+              <div className={styles.timerValue}>{formatTime(timeLeft)}</div>
+              <div className={styles.timerLabel}>
                 {round.status === RoundStatus.COOLDOWN ? 'до начала' : 'осталось'}
               </div>
             </div>
           </div>
         )}
 
-        <div className={`goose-card ${isSpinning ? 'spin' : ''}`}>
-          <div className="goose" onClick={handleTap} ref={gooseRef}>
+        <div className={`${styles.gooseCard} ${isSpinning ? styles.spin : ''}`}>
+          <div className={styles.goose} onClick={onTap} ref={gooseRef}>
             {renderGoose()}
           </div>
         </div>
 
-        {getStatusText() && <div className="game-status">{getStatusText()}</div>}
+        {getStatusText() && <div className={styles.gameStatus}>{getStatusText()}</div>}
 
         {round.status === RoundStatus.ACTIVE && (
-          <div className="game-score" ref={scoreRef}>
+          <div className={styles.gameScore} ref={scoreRef}>
             Очки: {myStats?.score || 0}
           </div>
         )}
 
         {round.status === RoundStatus.FINISHED && (
-          <div className="stats-section">
-            <div className="stats-title">Статистика</div>
-            <div className="stat-item">
-              <span className="stat-name">Всего</span>
-              <span className="stat-score">{round.totalScore}</span>
+          <div className={styles.statsSection}>
+            <div className={styles.statsTitle}>Статистика</div>
+            <div className={styles.statItem}>
+              <span className={styles.statName}>Всего</span>
+              <span className={styles.statScore}>{round.totalScore}</span>
             </div>
             {winner && (
-              <div className="stat-item winner">
-                <span className="stat-name">Победитель - {winner.user?.username}</span>
-                <span className="stat-score">{winner.score}</span>
+              <div className={`${styles.statItem} ${styles.winner}`}>
+                <span className={styles.statName}>Победитель - {winner.user?.username}</span>
+                <span className={styles.statScore}>{winner.score}</span>
               </div>
             )}
-            <div className="stat-item">
-              <span className="stat-name">Мои очки</span>
-              <span className="stat-score">{myStats?.score || 0}</span>
+            <div className={styles.statItem}>
+              <span className={styles.statName}>Мои очки</span>
+              <span className={styles.statScore}>{myStats?.score || 0}</span>
             </div>
-            <div className="stats-list">
+            <div className={styles.statsList}>
               {round.playerStats?.slice(1).map((stat) => (
-                <div key={stat.id} className="stat-item">
-                  <span className="stat-name">{stat.user?.username}</span>
-                  <span className="stat-score">{stat.score}</span>
+                <div key={stat.id} className={styles.statItem}>
+                  <span className={styles.statName}>{stat.user?.username}</span>
+                  <span className={styles.statScore}>{stat.score}</span>
                 </div>
               ))}
             </div>
@@ -441,4 +249,3 @@ export function RoundGame() {
     </div>
   );
 }
-

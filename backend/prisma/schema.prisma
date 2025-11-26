@@ -25,6 +25,7 @@ model User {
   role      UserRole
   createdAt DateTime @default(now())
   
+  taps        Tap[]
   playerStats PlayerStats[]
 }
 
@@ -37,10 +38,25 @@ model Round {
   totalScore  Int         @default(0)
   createdAt   DateTime    @default(now())
   
+  taps        Tap[]
   playerStats PlayerStats[]
   
   @@index([status])
   @@index([startTime])
+}
+
+model Tap {
+  id        String   @id @default(uuid())
+  userId    String
+  roundId   String
+  points    Int
+  createdAt DateTime @default(now())
+  
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  round Round @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  
+  @@index([roundId, userId])
+  @@index([roundId, createdAt])
 }
 
 model PlayerStats {
@@ -50,11 +66,10 @@ model PlayerStats {
   taps     Int    @default(0)
   score    Int    @default(0)
   
-  user     User   @relation(fields: [userId], references: [id])
-  round    Round  @relation(fields: [roundId], references: [id])
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  round Round @relation(fields: [roundId], references: [id], onDelete: Cascade)
   
   @@unique([userId, roundId])
   @@index([roundId])
   @@index([roundId, score])
 }
-

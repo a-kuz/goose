@@ -31,5 +31,32 @@ export async function roundRoutes(fastify: FastifyInstance) {
 
     return round;
   });
-}
 
+  fastify.get<{ Params: { roundId: string } }>('/rounds/:roundId/stats', {
+    onRequest: [fastify.authenticate],
+  }, async (request, reply) => {
+    const userId = request.user.id;
+    const { roundId } = request.params;
+
+    const stats = await RoundService.getPlayerStats(userId, roundId);
+
+    if (!stats) {
+      return reply.code(404).send({ error: 'Stats not found' });
+    }
+
+    return stats;
+  });
+
+  fastify.get<{ Params: { roundId: string } }>('/rounds/:roundId/all-stats', async (request, reply) => {
+    const { roundId } = request.params;
+
+    const stats = await RoundService.getAllPlayerStats(roundId);
+
+    return {
+      roundId,
+      totalPlayers: stats.length,
+      totalTaps: stats.reduce((sum, s) => sum + s.taps, 0),
+      players: stats,
+    };
+  });
+}

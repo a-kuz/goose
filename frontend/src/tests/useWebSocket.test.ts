@@ -3,7 +3,6 @@ import { renderHook, waitFor } from '@testing-library/react';
 import { useWebSocket } from '../hooks/useWebSocket';
 
 describe('useWebSocket', () => {
-  let mockWebSocket: any;
   let mockWebSocketInstances: any[] = [];
 
   beforeEach(() => {

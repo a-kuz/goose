@@ -8,6 +8,7 @@ import { prisma } from '../db';
 describe('TapService', () => {
   beforeEach(async () => {
     await prisma.playerStats.deleteMany();
+    await prisma.tap.deleteMany();
     await prisma.round.deleteMany();
     await prisma.user.deleteMany();
     await new Promise(resolve => setTimeout(resolve, 100));
@@ -24,10 +25,20 @@ describe('TapService', () => {
         data: { status: 'ACTIVE' },
       });
       
-      const stats = await TapService.processTap(user.id, round.id, user.role);
+      await TapService.processTap(user.id, round.id, user.role);
+      await TapService.finalizeRound(round.id);
       
-      expect(stats.taps).toBe(1);
-      expect(stats.score).toBe(1);
+      const stats = await prisma.playerStats.findUnique({
+        where: {
+          userId_roundId: {
+            userId: user.id,
+            roundId: round.id,
+          },
+        },
+      });
+      
+      expect(stats?.taps).toBe(1);
+      expect(stats?.score).toBe(1);
     });
 
     it('should add 10 points for every 11th tap', async () => {
@@ -40,14 +51,23 @@ describe('TapService', () => {
         data: { status: 'ACTIVE' },
       });
       
-      for (let i = 0; i < 10; i++) {
+      for (let i = 0; i < 11; i++) {
         await TapService.processTap(user.id, round.id, user.role);
       }
       
-      const stats = await TapService.processTap(user.id, round.id, user.role);
+      await TapService.finalizeRound(round.id);
       
-      expect(stats.taps).toBe(11);
-      expect(stats.score).toBe(20);
+      const stats = await prisma.playerStats.findUnique({
+        where: {
+          userId_roundId: {
+            userId: user.id,
+            roundId: round.id,
+          },
+        },
+      });
+      
+      expect(stats?.taps).toBe(11);
+      expect(stats?.score).toBe(20);
     });
 
     it('should not add points for Nikita role', async () => {
@@ -60,10 +80,20 @@ describe('TapService', () => {
         data: { status: 'ACTIVE' },
       });
       
-      const stats = await TapService.processTap(user.id, round.id, user.role);
+      await TapService.processTap(user.id, round.id, user.role);
+      await TapService.finalizeRound(round.id);
       
-      expect(stats.taps).toBe(1);
-      expect(stats.score).toBe(0);
+      const stats = await prisma.playerStats.findUnique({
+        where: {
+          userId_roundId: {
+            userId: user.id,
+            roundId: round.id,
+          },
+        },
+      });
+      
+      expect(stats?.taps).toBe(1);
+      expect(stats?.score).toBe(0);
     });
 
     it('should throw error for inactive round', async () => {
@@ -96,6 +126,7 @@ describe('TapService', () => {
       
       await TapService.processTap(user.id, round.id, user.role);
       await TapService.processTap(user.id, round.id, user.role);
+      await TapService.finalizeRound(round.id);
       
       const updatedRound = await prisma.round.findUnique({
         where: { id: round.id },
@@ -117,6 +148,7 @@ describe('TapService', () => {
       await TapService.processTap(user.id, round.id, user.role);
       await TapService.processTap(user.id, round.id, user.role);
       await TapService.processTap(user.id, round.id, user.role);
+      await TapService.finalizeRound(round.id);
       
       const finalStats = await prisma.playerStats.findUnique({
         where: {

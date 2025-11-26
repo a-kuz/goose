@@ -1,0 +1,253 @@
+.gamePage {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: calc(100vh - 80px);
+}
+
+.gameCard {
+  background: white;
+  padding: 2rem;
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  width: 100%;
+  max-width: 500px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.gameHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.gameHeader .headerRight {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.backLink {
+  color: #667eea;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.backLink:hover {
+  text-decoration: underline;
+}
+
+.playerPosition {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #667eea;
+}
+
+.wsStatus {
+  font-size: 1.2rem;
+  line-height: 1;
+  transition: color 0.3s ease;
+}
+
+.wsStatusConnected {
+  color: #10b981;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.wsStatusConnecting {
+  color: #f59e0b;
+  animation: blink 1s ease-in-out infinite;
+}
+
+.wsStatusDisconnected {
+  color: #ef4444;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+@keyframes blink {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+
+.timerContainer {
+  position: relative;
+  width: 180px;
+  height: 180px;
+  margin: 0 auto 2rem;
+}
+
+.timerCircle {
+  width: 100%;
+  height: 100%;
+}
+
+.timerProgress {
+  transition: stroke-dashoffset 0.3s ease;
+}
+
+.timerText {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+}
+
+.timerValue {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: #667eea;
+  line-height: 1;
+  margin-bottom: 0.5rem;
+}
+
+.timerLabel {
+  font-size: 0.875rem;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.particleLayer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.particle {
+  position: absolute;
+  left: 0;
+  top: 0;
+  border-radius: 999px;
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  animation-name: particleFlight;
+  animation-fill-mode: forwards;
+  animation-timing-function: cubic-bezier(0.3, 0.7, 0.4, 1);
+  will-change: transform, opacity;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+  mix-blend-mode: screen;
+}
+
+@keyframes particleFlight {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) translate(0, 0) scale(0.6)
+      rotate(var(--particle-rotation, 0deg));
+  }
+  15% {
+    opacity: 1;
+  }
+  55% {
+    transform: translate(-50%, -50%)
+      translate(var(--dx-mid), calc(var(--dy-mid) + var(--arc)))
+      scale(0.9)
+      rotate(var(--particle-rotation, 0deg));
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) translate(var(--dx), var(--dy)) scale(0.4)
+      rotate(calc(var(--particle-rotation, 0deg) + 40deg));
+  }
+}
+
+.gooseCard {
+  transition: transform 0.8s ease-in-out;
+}
+
+.gooseCard.spin {
+  transform: rotateY(180deg);
+}
+
+.goose {
+  width: 200px;
+  height: 200px;
+  margin: 2rem auto;
+  cursor: pointer;
+  user-select: none;
+  transition: transform 0.1s ease;
+}
+
+.goose:active {
+  transform: scale(0.95);
+}
+
+.gooseSvg {
+  width: 100%;
+  height: 100%;
+}
+
+.gameStatus {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #374151;
+  margin-bottom: 1rem;
+}
+
+.gameScore {
+  font-size: 1.25rem;
+  color: #6b7280;
+  margin-bottom: 0.5rem;
+}
+
+.statsSection {
+  margin-top: 2rem;
+  padding-top: 2rem;
+  border-top: 2px solid #e5e7eb;
+}
+
+.statsTitle {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #374151;
+  margin-bottom: 1rem;
+}
+
+.statsList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.statItem {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.75rem;
+  background: #f9fafb;
+  border-radius: 8px;
+}
+
+.statItem.winner {
+  background: #fef3c7;
+  font-weight: 600;
+}
+
+.statName {
+  color: #374151;
+}
+
+.statScore {
+  color: #667eea;
+  font-weight: 600;
+}
+

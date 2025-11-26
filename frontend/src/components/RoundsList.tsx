@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api } from '../api';
-import { Round, RoundStatus, UserRole } from '../types';
+import { RoundStatus, UserRole } from '../types';
 import { useAuth } from '../context/AuthContext';
+import { useRounds } from '../context/RoundsContext';
+import styles from '../styles/RoundsList.module.css';
 
 const dayFormatter = new Intl.DateTimeFormat('ru-RU', {
   day: '2-digit',
@@ -28,43 +28,10 @@ const formatRoundPeriod = (startTime: string, endTime: string) => {
   return `${startLabel} — ${endLabel}`;
 };
 
-
 export function RoundsList() {
-  const [rounds, setRounds] = useState<Round[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [creating, setCreating] = useState(false);
   const navigate = useNavigate();
   const { user } = useAuth();
-
-  useEffect(() => {
-    loadRounds();
-    const interval = setInterval(loadRounds, 5000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const loadRounds = async () => {
-    try {
-      const data = await api.getRounds();
-      setRounds(data);
-    } catch (error) {
-      console.error('Failed to load rounds:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleCreateRound = async () => {
-    setCreating(true);
-
-    try {
-      await api.createRound();
-      await loadRounds();
-    } catch (error) {
-      console.error('Failed to create round:', error);
-    } finally {
-      setCreating(false);
-    }
-  };
+  const { rounds, loading, creating, createRound } = useRounds();
 
   const getStatusText = (status: RoundStatus) => {
     switch (status) {
@@ -80,11 +47,11 @@ export function RoundsList() {
   const getStatusClass = (status: RoundStatus) => {
     switch (status) {
       case RoundStatus.COOLDOWN:
-        return 'status-cooldown';
+        return styles.statusCooldown;
       case RoundStatus.ACTIVE:
-        return 'status-active';
+        return styles.statusActive;
       case RoundStatus.FINISHED:
-        return 'status-finished';
+        return styles.statusFinished;
     }
   };
 
@@ -109,19 +76,19 @@ export function RoundsList() {
   const finishedRounds = rounds.filter(r => r.status === RoundStatus.FINISHED);
 
   return (
-    <div className="container">
+    <div className={styles.container}>
       {user?.role === UserRole.ADMIN && (
         <button
           type="button"
-          className="btn btn-primary btn-full btn-create-round"
-          onClick={handleCreateRound}
+          className={`${styles.btn} ${styles.btnPrimary}`}
+          onClick={createRound}
           disabled={creating}
         >
           {creating ? 'Создание...' : 'Создать раунд'}
         </button>
       )}
 
-      <div className="rounds-list">
+      <div className={styles.roundsList}>
         {activeRounds.map((round) => {
           const order = rounds.length - rounds.indexOf(round);
           const period = formatRoundPeriod(round.startTime, round.endTime);
@@ -129,15 +96,15 @@ export function RoundsList() {
           return (
             <div
               key={round.id}
-              className="round-card"
+              className={styles.roundCard}
               onClick={() => navigate(`/round/${round.id}`)}
             >
-              <div className="round-header">
-                <div className="round-title">
-                  <div className="round-name">Раунд {order}</div>
-                  <div className="round-period">{period}</div>
+              <div className={styles.roundHeader}>
+                <div className={styles.roundTitle}>
+                  <div className={styles.roundName}>Раунд {order}</div>
+                  <div className={styles.roundPeriod}>{period}</div>
                 </div>
-                <div className={`round-status ${getStatusClass(round.status)}`}>
+                <div className={`${styles.roundStatus} ${getStatusClass(round.status)}`}>
                   {getStatusText(round.status)}
                 </div>
               </div>
@@ -147,9 +114,9 @@ export function RoundsList() {
       </div>
 
       {finishedRounds.length > 0 && (
-        <div className="finished-rounds-section">
+        <div className={styles.finishedRoundsSection}>
           <h3>Завершенные раунды</h3>
-          <table className="finished-rounds-table">
+          <table className={styles.finishedRoundsTable}>
             <thead>
               <tr>
                 <th>Раунд</th>
@@ -183,4 +150,3 @@ export function RoundsList() {
     </div>
   );
 }
-

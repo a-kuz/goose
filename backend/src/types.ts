@@ -1,7 +1,7 @@
 import { UserRole } from '@prisma/client';
 
 export interface JWTPayload {
-  userId: string;
+  id: string;
   username: string;
   role: UserRole;
 }
@@ -17,4 +17,3 @@ export interface RegisterRequest {
 export interface LoginRequest {
   username: string;
 }
-

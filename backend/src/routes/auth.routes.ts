@@ -12,7 +12,7 @@ export async function authRoutes(fastify: FastifyInstance) {
 
     const user = await AuthService.findOrCreateUser(username);
     const token = fastify.jwt.sign({
-      userId: user.id,
+      id: user.id,
       username: user.username,
       role: user.role,
     });
@@ -29,7 +29,7 @@ export async function authRoutes(fastify: FastifyInstance) {
 
     const user = await AuthService.findOrCreateUser(username);
     const token = fastify.jwt.sign({
-      userId: user.id,
+      id: user.id,
       username: user.username,
       role: user.role,
     });
@@ -43,4 +43,3 @@ export async function authRoutes(fastify: FastifyInstance) {
     return request.user;
   });
 }
-

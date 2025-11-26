@@ -2,10 +2,9 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { render } from '@testing-library/react';
-import { BrowserRouter } from 'react-router-dom';
 import App from '../App';
 import { api } from '../api';
-import { mockUser, mockAdminUser } from './mocks';
+import { mockUser } from './mocks';
 
 vi.mock('../api');
 
