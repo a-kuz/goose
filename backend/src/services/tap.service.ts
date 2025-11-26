@@ -4,76 +4,24 @@ import { RoundService } from './round.service';
 
 export class TapService {
   static async processTap(userId: string, roundId: string, tapId: string, userRole: UserRole) {
-    console.log('🔧 TapService.processTap', { userId, roundId, tapId, userRole });
-    
-    const round = await prisma.round.findUnique({
-      where: { id: roundId },
-      select: {
-        id: true,
-        startTime: true,
-        endTime: true,
-        status: true,
-      },
-    });
-
-    if (!round) {
-      console.error('❌ Round not found', { roundId });
-      throw new Error('Round not found');
-    }
-
-    console.log('✓ Round found', { roundId, status: round.status });
-
-    if (!RoundService.isRoundActive(round)) {
-      console.error('❌ Round is not active', { roundId, status: round.status });
-      throw new Error('Round is not active');
-    }
-
-    console.log('✓ Round is active');
-
-    const existingTap = await prisma.tap.findUnique({
-      where: { id: tapId },
-    });
-
-    if (existingTap) {
-      console.error('❌ Tap already processed', { tapId });
-      throw new Error('Tap already processed');
-    }
-
-    console.log('✓ Tap is new, creating...');
-
-    const currentTapCount = await prisma.tap.count({
-      where: {
-        userId,
-        roundId,
-      },
-    });
-
-    const tapNumber = currentTapCount + 1;
-    const points = userRole === UserRole.NIKITA ? 0 : (tapNumber % 11 === 0 ? 10 : 1);
-
-    console.log('✓ Calculating points', { tapNumber, points, userRole });
-
-    await prisma.tap.create({
-      data: {
-        id: tapId,
-        userId,
-        roundId,
-        points,
-      },
-    });
-
-    console.log('✓ Tap created in DB');
-
-    const stats = await this.getTapStats(userId, roundId);
-
-    console.log('✓ Stats retrieved', { stats });
-
-    return {
+    const result = await prisma.$queryRawUnsafe<Array<{ inserted: bigint }>>(
+      `INSERT INTO "Tap" (id, "userId", "roundId", points, "createdAt")
+       SELECT $1, $2, $3, 0, NOW()
+       FROM "Round" r
+       WHERE r.id = $3 
+         AND r.status = 'ACTIVE'
+         AND r."startTime" <= NOW()
+         AND r."endTime" > NOW()
+       ON CONFLICT (id) DO NOTHING
+       RETURNING 1`,
+      tapId,
       userId,
-      roundId,
-      taps: stats.taps,
-      score: stats.score,
-    };
+      roundId
+    );
+
+    if (!result[0]) {
+      throw new Error('Round not found or not active');
+    }
   }
 
   static async getTapStats(userId: string, roundId: string) {
@@ -102,69 +50,35 @@ export class TapService {
         return;
       }
 
-      const allTaps = await tx.tap.findMany({
-        where: { roundId },
-        orderBy: [
-          { userId: 'asc' },
-          { createdAt: 'asc' },
-        ],
-        include: {
-          user: {
-            select: { role: true },
-          },
-        },
-      });
+      await tx.$executeRawUnsafe(`
+        INSERT INTO "PlayerStats" (id, "userId", "roundId", taps, score)
+        SELECT 
+          gen_random_uuid(),
+          t."userId",
+          t."roundId",
+          COUNT(*) as taps,
+          CASE 
+            WHEN u.role = 'NIKITA' THEN 0
+            ELSE COUNT(*) + (COUNT(*) / 11) * 9
+          END as score
+        FROM "Tap" t
+        JOIN "User" u ON t."userId" = u.id
+        WHERE t."roundId" = $1
+        GROUP BY t."userId", t."roundId", u.role
+        ON CONFLICT ("userId", "roundId") 
+        DO UPDATE SET 
+          taps = EXCLUDED.taps,
+          score = EXCLUDED.score
+      `, roundId);
 
-      const userStatsMap = new Map<string, { taps: number; score: number }>();
-
-      let currentUserId = '';
-      let tapNumberForUser = 0;
-
-      for (const tap of allTaps) {
-        if (tap.userId !== currentUserId) {
-          currentUserId = tap.userId;
-          tapNumberForUser = 0;
-        }
-        
-        tapNumberForUser++;
-        
-        const points = tap.user.role === UserRole.NIKITA ? 0 : (tapNumberForUser % 11 === 0 ? 10 : 1);
-        
-        const existing = userStatsMap.get(tap.userId) || { taps: 0, score: 0 };
-        userStatsMap.set(tap.userId, {
-          taps: existing.taps + 1,
-          score: existing.score + points,
-        });
-      }
-
-      let totalScore = 0;
-
-      for (const [userId, stats] of userStatsMap.entries()) {
-        totalScore += stats.score;
-
-        await tx.playerStats.upsert({
-          where: {
-            userId_roundId: {
-              userId,
-              roundId,
-            },
-          },
-          create: {
-            userId,
-            roundId,
-            taps: stats.taps,
-            score: stats.score,
-          },
-          update: {
-            taps: stats.taps,
-            score: stats.score,
-          },
-        });
-      }
+      const totalScoreResult = await tx.$queryRawUnsafe<Array<{ total: bigint }>>(
+        `SELECT COALESCE(SUM(score), 0) as total FROM "PlayerStats" WHERE "roundId" = $1`,
+        roundId
+      );
 
       await tx.round.update({
         where: { id: roundId },
-        data: { totalScore },
+        data: { totalScore: Number(totalScoreResult[0]?.total || 0) },
       });
 
       await tx.tap.deleteMany({

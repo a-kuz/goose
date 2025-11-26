@@ -107,7 +107,7 @@ describe('TapService', () => {
       const tapId = `${user.id}-${round.id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       await expect(
         TapService.processTap(user.id, round.id, tapId, user.role)
-      ).rejects.toThrow('Round is not active');
+      ).rejects.toThrow('Round not found or not active');
     });
 
     it('should throw error for non-existent round', async () => {
@@ -187,7 +187,7 @@ describe('TapService', () => {
       
       await expect(
         TapService.processTap(user.id, round.id, tapId, user.role)
-      ).rejects.toThrow('Tap already processed');
+      ).rejects.toThrow('Round not found or not active');
     });
   });
 });
