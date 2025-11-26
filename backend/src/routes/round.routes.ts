@@ -18,8 +18,11 @@ export async function roundRoutes(fastify: FastifyInstance) {
     return round;
   });
 
-  fastify.get('/rounds', async () => {
-    return RoundService.getAllRounds();
+  fastify.get('/rounds', {
+    onRequest: [fastify.authenticate],
+  }, async (request) => {
+    const userId = request.user.id;
+    return RoundService.getAllRoundsWithUserStats(userId);
   });
 
   fastify.get<{ Params: { id: string } }>('/rounds/:id', async (request, reply) => {

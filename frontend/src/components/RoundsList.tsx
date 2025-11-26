@@ -55,6 +55,19 @@ export function RoundsList() {
     }
   };
 
+  const getPlacementEmoji = (place: number) => {
+    switch (place) {
+      case 1:
+        return '🥇';
+      case 2:
+        return '🥈';
+      case 3:
+        return '🥉';
+      default:
+        return `${place}`;
+    }
+  };
+
   if (loading) {
     return <div className="loading">Загрузка...</div>;
   }
@@ -108,6 +121,8 @@ export function RoundsList() {
               <tr>
                 <th>Раунд</th>
                 <th>Дата</th>
+                <th>Место</th>
+                <th>Очки</th>
               </tr>
             </thead>
             <tbody>
@@ -119,6 +134,8 @@ export function RoundsList() {
                   <tr key={round.id} onClick={() => navigate(`/round/${round.id}`)}>
                     <td>{order}</td>
                     <td>{period}</td>
+                    <td>{round.userStats ? getPlacementEmoji(round.userStats.position) : '—'}</td>
+                    <td>{round.userStats?.score || 0}</td>
                   </tr>
                 );
               })}

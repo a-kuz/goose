@@ -20,11 +20,15 @@ export interface Round {
   id: string;
   startTime: string;
   endTime: string;
-  cooldownEnd: string;
+  cooldownEnd?: string;
   status: RoundStatus;
-  totalScore: number;
+  totalScore?: number;
   playerStats?: PlayerStats[];
   serverTime?: string;
+  userStats?: {
+    score: number;
+    position: number;
+  };
 }
 
 export interface PlayerStats {

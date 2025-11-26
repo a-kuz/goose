@@ -61,6 +61,65 @@ export class RoundService {
     return rounds;
   }
 
+  static async getAllRoundsWithUserStats(userId: string) {
+    await this.updateRoundStatuses();
+    
+    const rounds = await prisma.round.findMany({
+      orderBy: {
+        startTime: 'desc',
+      },
+      select: {
+        id: true,
+        startTime: true,
+        endTime: true,
+        status: true,
+      },
+    });
+
+    const roundsWithStats = await Promise.all(
+      rounds.map(async (round) => {
+        if (round.status !== RoundStatus.FINISHED) {
+          return round;
+        }
+
+        const userStats = await prisma.playerStats.findUnique({
+          where: {
+            userId_roundId: {
+              userId,
+              roundId: round.id,
+            },
+          },
+          select: {
+            score: true,
+          },
+        });
+
+        if (!userStats) {
+          return round;
+        }
+
+        const betterPlayers = await prisma.playerStats.count({
+          where: {
+            roundId: round.id,
+            score: {
+              gt: userStats.score,
+            },
+          },
+        });
+
+        return {
+          ...round,
+          userStats: {
+            score: userStats.score,
+            position: betterPlayers + 1,
+          },
+        };
+      })
+    );
+
+    return roundsWithStats;
+  }
+
   static async updateRoundStatuses() {
     const now = new Date();
 

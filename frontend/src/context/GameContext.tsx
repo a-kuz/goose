@@ -201,7 +201,7 @@ export function GameProvider({ children, userId }: { children: ReactNode; userId
       return Math.max(0, Math.min(100, (remaining / total) * 100));
     }
     
-    if (roundData.status === 'COOLDOWN') {
+    if (roundData.status === 'COOLDOWN' && roundData.cooldownEnd) {
       const start = new Date(roundData.startTime).getTime();
       const cooldownStart = new Date(roundData.cooldownEnd).getTime();
       const total = start - cooldownStart;

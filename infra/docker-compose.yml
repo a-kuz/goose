@@ -38,12 +38,18 @@ services:
   backend1:
     build:
       context: ../backend
+      args:
+        NODE_ENV: development
     environment:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/goose?schema=public
       JWT_SECRET: your-secret-key-change-in-production
       PORT: 3000
       ROUND_DURATION: 60
       COOLDOWN_DURATION: 3
+      NODE_ENV: development
+    volumes:
+      - ../backend/src:/app/src
+      - ../backend/prisma:/app/prisma
     depends_on:
       postgres:
         condition: service_healthy
@@ -52,12 +58,18 @@ services:
   backend2:
     build:
       context: ../backend
+      args:
+        NODE_ENV: development
     environment:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/goose?schema=public
       JWT_SECRET: your-secret-key-change-in-production
       PORT: 3000
       ROUND_DURATION: 60
       COOLDOWN_DURATION: 3
+      NODE_ENV: development
+    volumes:
+      - ../backend/src:/app/src
+      - ../backend/prisma:/app/prisma
     depends_on:
       postgres:
         condition: service_healthy
@@ -66,33 +78,54 @@ services:
   backend3:
     build:
       context: ../backend
+      args:
+        NODE_ENV: development
     environment:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/goose?schema=public
       JWT_SECRET: your-secret-key-change-in-production
       PORT: 3000
       ROUND_DURATION: 60
       COOLDOWN_DURATION: 3
+      NODE_ENV: development
+    volumes:
+      - ../backend/src:/app/src
+      - ../backend/prisma:/app/prisma
     depends_on:
       postgres:
         condition: service_healthy
     restart: unless-stopped
 
-  frontend:
-    build:
-      context: ../frontend
-    restart: unless-stopped
-
   nginx:
     image: nginx:alpine
-    ports:
-      - "80:80"
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - "80:80"
     depends_on:
       - backend1
       - backend2
       - backend3
       - frontend
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ../frontend
+      target: development
+      args:
+        NODE_ENV: development
+    environment:
+      NODE_ENV: development
+    volumes:
+      - ../frontend/src:/app/src
+      - ../frontend/index.html:/app/index.html
+      - ../frontend/vite.config.ts:/app/vite.config.ts
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend1
+      - backend2
+      - backend3
     restart: unless-stopped
 
 volumes:
