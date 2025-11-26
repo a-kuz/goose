@@ -6,8 +6,8 @@ import { randomUUID } from 'crypto';
 type TapBroadcastPayload = {
   roundId: string;
   userId: string;
+  tapId: string;
   stats: {
-    id: string;
     userId: string;
     roundId: string;
     taps: number;
@@ -64,6 +64,7 @@ export class BroadcastService {
                 type: 'tap',
                 roundId: data.payload.roundId,
                 userId: data.payload.userId,
+                tapId: data.payload.tapId,
                 stats: data.payload.stats,
               }),
             );

@@ -34,3 +34,4 @@ export async function createApp(options: AppOptions = {}) {
 
   return fastify;
 }
+

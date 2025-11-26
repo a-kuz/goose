@@ -3,14 +3,17 @@ import { useParams, Link } from 'react-router-dom';
 import { RoundStatus } from '../types';
 import { useWebSocket } from '../hooks/useWebSocket';
 import { useGame } from '../context/GameContext';
+import { useAuth } from '../context/AuthContext';
 import styles from '../styles/RoundGame.module.css';
 
 export function RoundGame() {
   const { id } = useParams<{ id: string }>();
+  const { user } = useAuth();
   const { lastMessage, status: wsStatus } = useWebSocket();
   const {
     round,
     myStats,
+    localScore,
     timeLeft,
     loading,
     particles,
@@ -29,18 +32,51 @@ export function RoundGame() {
   useEffect(() => {
     if (!id) return;
     loadRound(id);
-  }, [id, loadRound]);
+  }, [id]);
 
   useEffect(() => {
-    if (lastMessage?.type === 'tap' && lastMessage.roundId === id) {
-      loadRound(id!, true);
+    if (!lastMessage || !id || !user?.id) return;
+    
+    console.log('📨 WebSocket message received', { 
+      type: lastMessage.type,
+      messageUserId: lastMessage.userId,
+      myUserId: user.id,
+      isMyTap: lastMessage.userId === user.id
+    });
+    
+    if (lastMessage.type === 'tap' && lastMessage.roundId === id && lastMessage.userId !== user.id) {
+      console.log('🔄 Loading round (other user tap)');
+      loadRound(id, true);
     }
-  }, [lastMessage, id, loadRound]);
+  }, [lastMessage]);
 
   const onTap = async (e?: React.MouseEvent) => {
+    console.log('🖱️ Goose clicked!', { 
+      hasId: !!id, 
+      hasRound: !!round, 
+      roundStatus: round?.status,
+      isActive: round?.status === RoundStatus.ACTIVE 
+    });
+    
     e?.preventDefault();
     e?.stopPropagation();
-    if (!id || !round || round.status !== RoundStatus.ACTIVE) return;
+    
+    if (!id) {
+      console.warn('❌ onTap: no id');
+      return;
+    }
+    
+    if (!round) {
+      console.warn('❌ onTap: no round');
+      return;
+    }
+    
+    if (round.status !== RoundStatus.ACTIVE) {
+      console.warn('❌ onTap: round not active, status:', round.status);
+      return;
+    }
+    
+    console.log('✅ onTap: spawning particles and calling handleTap');
     spawnParticles(cardRef, gooseRef, scoreRef);
     await handleTap(id);
   };
@@ -214,7 +250,7 @@ export function RoundGame() {
 
         {round.status === RoundStatus.ACTIVE && (
           <div className={styles.gameScore} ref={scoreRef}>
-            Очки: {myStats?.score || 0}
+            Очки: {localScore}
           </div>
         )}
 

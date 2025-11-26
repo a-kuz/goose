@@ -174,13 +174,14 @@ describe('ApiClient', () => {
         json: async () => mockResponse,
       });
 
-      const result = await apiClient.tap('round-1');
+      const tapId = 'test-tap-id';
+      const result = await apiClient.tap('round-1', tapId);
       expect(result).toEqual(mockResponse);
       expect(globalThis.fetch).toHaveBeenCalledWith(
         expect.stringContaining('/tap'),
         expect.objectContaining({
           method: 'POST',
-          body: JSON.stringify({ roundId: 'round-1' }),
+          body: JSON.stringify({ roundId: 'round-1', tapId }),
         })
       );
     });

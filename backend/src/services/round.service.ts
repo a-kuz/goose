@@ -50,23 +50,15 @@ export class RoundService {
       orderBy: {
         startTime: 'desc',
       },
-      include: {
-        playerStats: {
-          include: {
-            user: true,
-          },
-          orderBy: {
-            score: 'desc',
-          },
-        },
+      select: {
+        id: true,
+        startTime: true,
+        endTime: true,
+        status: true,
       },
     });
     
-    const serverTime = new Date().toISOString();
-    return rounds.map(round => ({
-      ...round,
-      serverTime,
-    }));
+    return rounds;
   }
 
   static async updateRoundStatuses() {

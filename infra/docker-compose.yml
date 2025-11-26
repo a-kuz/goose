@@ -43,7 +43,7 @@ services:
       JWT_SECRET: your-secret-key-change-in-production
       PORT: 3000
       ROUND_DURATION: 60
-      COOLDOWN_DURATION: 30
+      COOLDOWN_DURATION: 3
     depends_on:
       postgres:
         condition: service_healthy
@@ -57,7 +57,7 @@ services:
       JWT_SECRET: your-secret-key-change-in-production
       PORT: 3000
       ROUND_DURATION: 60
-      COOLDOWN_DURATION: 30
+      COOLDOWN_DURATION: 3
     depends_on:
       postgres:
         condition: service_healthy
@@ -71,7 +71,7 @@ services:
       JWT_SECRET: your-secret-key-change-in-production
       PORT: 3000
       ROUND_DURATION: 60
-      COOLDOWN_DURATION: 30
+      COOLDOWN_DURATION: 3
     depends_on:
       postgres:
         condition: service_healthy
@@ -80,11 +80,7 @@ services:
   frontend:
     build:
       context: ../frontend
-      target: builder
-    volumes:
-      - frontend_dist:/app/dist
-    command: sh -c "npm run build && cp -r dist/* /app/dist/"
-    restart: "no"
+    restart: unless-stopped
 
   nginx:
     image: nginx:alpine
@@ -92,7 +88,6 @@ services:
       - "80:80"
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
-      - frontend_dist:/usr/share/nginx/html:ro
     depends_on:
       - backend1
       - backend2
@@ -102,5 +97,4 @@ services:
 
 volumes:
   postgres_data:
-  frontend_dist:
 

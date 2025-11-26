@@ -40,6 +40,20 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function GameWrapper() {
+  const { user } = useAuth();
+  
+  if (!user) {
+    return <div className="loading">Загрузка...</div>;
+  }
+
+  return (
+    <GameProvider userId={user.id}>
+      <RoundGame />
+    </GameProvider>
+  );
+}
+
 function AppRoutes() {
   const { user, loading } = useAuth();
 
@@ -67,9 +81,7 @@ function AppRoutes() {
         path="/round/:id"
         element={
           <ProtectedRoute>
-            <GameProvider userId={user?.id}>
-              <RoundGame />
-            </GameProvider>
+            <GameWrapper />
           </ProtectedRoute>
         }
       />

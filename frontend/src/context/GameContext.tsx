@@ -13,9 +13,11 @@ type Particle = {
   duration: number;
 };
 
+
 interface GameContextType {
   round: Round | null;
   myStats: PlayerStats | null;
+  localScore: number;
   timeLeft: number;
   loading: boolean;
   particles: Particle[];
@@ -30,9 +32,52 @@ interface GameContextType {
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
 
+const STORAGE_KEY = 'goose_round_taps';
+
+function getLocalTapCount(userId: string, roundId: string): number {
+  try {
+    const key = `${STORAGE_KEY}_${userId}_${roundId}`;
+    const stored = localStorage.getItem(key);
+    return stored ? parseInt(stored, 10) : 0;
+  } catch {
+    return 0;
+  }
+}
+
+function saveLocalTapCount(userId: string, roundId: string, count: number) {
+  try {
+    const key = `${STORAGE_KEY}_${userId}_${roundId}`;
+    localStorage.setItem(key, count.toString());
+  } catch (error) {
+    console.error('Failed to save tap count:', error);
+  }
+}
+
+function clearLocalTapCount(userId: string, roundId: string) {
+  try {
+    const key = `${STORAGE_KEY}_${userId}_${roundId}`;
+    localStorage.removeItem(key);
+  } catch {}
+}
+
+function calculateScore(tapCount: number): number {
+  let score = 0;
+  for (let i = 1; i <= tapCount; i++) {
+    score += i % 11 === 0 ? 10 : 1;
+  }
+  return score;
+}
+
+function calculatePointsForTap(tapNumber: number): number {
+  return tapNumber % 11 === 0 ? 10 : 1;
+}
+
 export function GameProvider({ children, userId }: { children: ReactNode; userId?: string | null }) {
+  console.log('🎮 GameProvider render', { userId, hasUserId: !!userId });
+  
   const [round, setRound] = useState<Round | null>(null);
   const [myStats, setMyStats] = useState<PlayerStats | null>(null);
+  const [localScore, setLocalScore] = useState<number>(0);
   const [timeLeft, setTimeLeft] = useState<number>(0);
   const [loading, setLoading] = useState(false);
   const [particles, setParticles] = useState<Particle[]>([]);
@@ -40,6 +85,8 @@ export function GameProvider({ children, userId }: { children: ReactNode; userId
   const previousScoreRef = useRef(0);
   const timeoutsRef = useRef<number[]>([]);
   const serverTimeOffsetRef = useRef<number>(0);
+  const currentRoundIdRef = useRef<string | null>(null);
+  const tapCounterRef = useRef(0);
 
   const calculateTimeLeft = useCallback((roundData: Round) => {
     const now = new Date().getTime() + serverTimeOffsetRef.current;
@@ -171,12 +218,17 @@ export function GameProvider({ children, userId }: { children: ReactNode; userId
     return position > 0 ? position : null;
   }, [round, myStats, userId]);
 
+
   const loadRound = useCallback(async (roundId: string, silent = false) => {
+    console.log('🔄 loadRound called', { roundId, silent });
+    
     if (!silent) {
       setLoading(true);
     }
     try {
+      console.log('📡 Fetching round data...');
       const data = await api.getRound(roundId);
+      console.log('✅ Round data received', { roundId, status: data.status });
       
       if (data.serverTime) {
         const serverTime = new Date(data.serverTime).getTime();
@@ -190,19 +242,46 @@ export function GameProvider({ children, userId }: { children: ReactNode; userId
         const userStats = data.playerStats?.find(
           (s: PlayerStats) => s.userId === userId
         );
-        const currentScore = userStats?.score || 0;
+        const serverScore = userStats?.score || 0;
         const previousScore = previousScoreRef.current;
 
-        if (currentScore > previousScore && currentScore !== 0 && currentScore % 10 === 0) {
+        if (serverScore > previousScore && serverScore !== 0 && serverScore % 10 === 0) {
           setIsSpinning(true);
           setTimeout(() => setIsSpinning(false), 800);
         }
 
-        previousScoreRef.current = currentScore;
+        previousScoreRef.current = serverScore;
         setMyStats(userStats || null);
+        
+        if (currentRoundIdRef.current !== roundId) {
+          currentRoundIdRef.current = roundId;
+          
+          if (data.status === 'ACTIVE') {
+            const savedTapCount = getLocalTapCount(userId, roundId);
+            tapCounterRef.current = savedTapCount;
+            const localScoreValue = calculateScore(savedTapCount);
+            setLocalScore(localScoreValue);
+            console.log('📦 Restored tap count', { savedTapCount, localScore: localScoreValue });
+          } else {
+            tapCounterRef.current = 0;
+            setLocalScore(serverScore);
+          }
+        } else {
+          if (data.status === 'FINISHED') {
+            setLocalScore(serverScore);
+            clearLocalTapCount(userId, roundId);
+            tapCounterRef.current = 0;
+          } else if (data.status === 'ACTIVE') {
+            const currentTapCount = tapCounterRef.current;
+            const localScoreValue = calculateScore(currentTapCount);
+            setLocalScore(localScoreValue);
+          }
+        }
       } else {
         previousScoreRef.current = 0;
         setMyStats(null);
+        setLocalScore(0);
+        tapCounterRef.current = 0;
       }
 
       setTimeLeft(calculateTimeLeft(data));
@@ -215,21 +294,84 @@ export function GameProvider({ children, userId }: { children: ReactNode; userId
     }
   }, [calculateTimeLeft, userId]);
 
-  const handleTap = useCallback(async (roundId: string) => {
-    if (!round || round.status !== 'ACTIVE') return;
+  useEffect(() => {
+    if (!round || !currentRoundIdRef.current) return;
+    
+    if (round.status === 'COOLDOWN' && timeLeft <= 1) {
+      const timeoutId = setTimeout(async () => {
+        await loadRound(currentRoundIdRef.current!, true);
+      }, 1500);
 
-    try {
-      await api.tap(roundId);
-      await loadRound(roundId, true);
-    } catch (error) {
-      console.error('Tap failed:', error);
+      return () => {
+        clearTimeout(timeoutId);
+      };
     }
-  }, [round, loadRound]);
+
+    if (round.status === 'ACTIVE' && timeLeft <= 1) {
+      const timeoutId = setTimeout(async () => {
+        await loadRound(currentRoundIdRef.current!, true);
+      }, 1500);
+
+      return () => {
+        clearTimeout(timeoutId);
+      };
+    }
+  }, [round, timeLeft, loadRound]);
+
+  const handleTap = useCallback(async (roundId: string) => {
+    console.log('🎯 handleTap called', { 
+      roundId, 
+      roundStatus: round?.status, 
+      userId,
+      hasRound: !!round,
+      isActive: round?.status === 'ACTIVE',
+      userIdType: typeof userId,
+      userIdValue: userId
+    });
+
+    if (!userId) {
+      console.error('❌ CRITICAL: No userId in handleTap!', { userId, typeOf: typeof userId });
+      return;
+    }
+
+    if (!round) {
+      console.warn('❌ No round');
+      return;
+    }
+    
+    if (round.status !== 'ACTIVE') {
+      console.warn('❌ Round not active, status:', round.status);
+      return;
+    }
+
+    tapCounterRef.current += 1;
+    const tapNumber = tapCounterRef.current;
+    const points = calculatePointsForTap(tapNumber);
+    const tapId = `${userId}-${roundId}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    
+    console.log('📤 Sending tap request', { tapId, roundId, tapNumber, points });
+    
+    api.tap(roundId, tapId)
+      .then(() => {
+        const newScore = calculateScore(tapCounterRef.current);
+        setLocalScore(newScore);
+        saveLocalTapCount(userId, roundId, tapCounterRef.current);
+        console.log('✅ Tap successful', { tapNumber, points, newScore });
+      })
+      .catch((error) => {
+        tapCounterRef.current -= 1;
+        const newScore = calculateScore(tapCounterRef.current);
+        setLocalScore(newScore);
+        saveLocalTapCount(userId, roundId, tapCounterRef.current);
+        console.error('❌ Tap failed:', error);
+      });
+  }, [round, userId]);
 
   return (
     <GameContext.Provider value={{
       round,
       myStats,
+      localScore,
       timeLeft,
       loading,
       particles,

@@ -4,6 +4,11 @@ import { RoundService } from '../services/round.service';
 import { AuthService } from '../services/auth.service';
 import { prisma } from '../db';
 
+let tapCounter = 0;
+const generateTapId = (userId: string, roundId: string) => {
+  return `${userId}-${roundId}-${Date.now()}-${tapCounter++}-${Math.random().toString(36).substr(2, 9)}`;
+};
+
 describe.sequential('Concurrent Users Load Tests', () => {
   beforeEach(async () => {
     await prisma.tap.deleteMany({});
@@ -38,7 +43,7 @@ describe.sequential('Concurrent Users Load Tests', () => {
 
     const tapPromises = users.flatMap(user =>
       Array.from({ length: tapsPerUser }, () =>
-        TapService.processTap(user.id, round.id, user.role)
+        TapService.processTap(user.id, round.id, generateTapId(user.id, round.id), user.role)
       )
     );
 
@@ -80,7 +85,7 @@ describe.sequential('Concurrent Users Load Tests', () => {
 
     const tapPromises = users.flatMap(user =>
       Array.from({ length: tapsPerUser }, () =>
-        TapService.processTap(user.id, round.id, user.role)
+        TapService.processTap(user.id, round.id, generateTapId(user.id, round.id), user.role)
       )
     );
 
@@ -124,7 +129,7 @@ describe.sequential('Concurrent Users Load Tests', () => {
 
       const tapPromises = users.flatMap(user =>
         Array.from({ length: tapsPerUser }, () =>
-          TapService.processTap(user.id, round.id, user.role)
+          TapService.processTap(user.id, round.id, generateTapId(user.id, round.id), user.role)
         )
       );
 
@@ -163,7 +168,7 @@ describe.sequential('Concurrent Users Load Tests', () => {
     const testStartTime = Date.now();
 
     const tapPromises = Array.from({ length: tapsCount }, () =>
-      TapService.processTap(user.id, round.id, user.role)
+      TapService.processTap(user.id, round.id, generateTapId(user.id, round.id), user.role)
     );
 
     await Promise.all(tapPromises);
@@ -179,16 +184,22 @@ describe.sequential('Concurrent Users Load Tests', () => {
 
     expect(totalTaps).toBe(tapsCount);
 
-    const taps = await prisma.tap.findMany({
-      where: { roundId: round.id, userId: user.id },
-      orderBy: { createdAt: 'asc' },
+    await TapService.finalizeRound(round.id);
+
+    const playerStats = await prisma.playerStats.findUnique({
+      where: {
+        userId_roundId: {
+          userId: user.id,
+          roundId: round.id,
+        },
+      },
     });
 
-    const eleventhTaps = taps.filter((_, index) => (index + 1) % 11 === 0);
-    expect(eleventhTaps.every(tap => tap.points === 10)).toBe(true);
+    expect(playerStats).toBeDefined();
+    expect(playerStats!.taps).toBe(tapsCount);
 
-    const regularTaps = taps.filter((_, index) => (index + 1) % 11 !== 0);
-    expect(regularTaps.every(tap => tap.points === 1)).toBe(true);
+    const expectedScore = Math.floor(tapsCount / 11) * 10 + (tapsCount % 11);
+    expect(playerStats!.score).toBe(expectedScore);
 
     console.log(`${tapsCount} burst taps completed in ${duration}ms (${(tapsCount / (duration / 1000)).toFixed(2)} taps/s)`);
   });
@@ -221,7 +232,7 @@ describe.sequential('Concurrent Users Load Tests', () => {
 
     const tapPromises = allUsers.flatMap(user =>
       Array.from({ length: tapsPerUser }, () =>
-        TapService.processTap(user.id, round.id, user.role)
+        TapService.processTap(user.id, round.id, generateTapId(user.id, round.id), user.role)
       )
     );
 
@@ -280,7 +291,7 @@ describe.sequential('Concurrent Users Load Tests', () => {
 
       const tapPromises = users.flatMap(user =>
         Array.from({ length: tapsPerUser }, () =>
-          TapService.processTap(user.id, round.id, user.role)
+          TapService.processTap(user.id, round.id, generateTapId(user.id, round.id), user.role)
         )
       );
 
@@ -335,7 +346,7 @@ describe.sequential('Concurrent Users Load Tests', () => {
 
     const tapPromises = users.flatMap(user =>
       Array.from({ length: tapsPerUser }, () =>
-        TapService.processTap(user.id, round.id, user.role)
+        TapService.processTap(user.id, round.id, generateTapId(user.id, round.id), user.role)
       )
     );
 
@@ -343,24 +354,23 @@ describe.sequential('Concurrent Users Load Tests', () => {
 
     await new Promise(resolve => setTimeout(resolve, 500));
 
+    await TapService.finalizeRound(round.id);
+
     for (const user of users) {
-      const taps = await prisma.tap.findMany({
-        where: { roundId: round.id, userId: user.id },
-        orderBy: { createdAt: 'asc' },
+      const playerStats = await prisma.playerStats.findUnique({
+        where: {
+          userId_roundId: {
+            userId: user.id,
+            roundId: round.id,
+          },
+        },
       });
 
-      expect(taps.length).toBe(tapsPerUser);
+      expect(playerStats).toBeDefined();
+      expect(playerStats!.taps).toBe(tapsPerUser);
 
-      let expectedScore = 0;
-      taps.forEach((tap, index) => {
-        const tapNumber = index + 1;
-        const expectedPoints = tapNumber % 11 === 0 ? 10 : 1;
-        expect(tap.points).toBe(expectedPoints);
-        expectedScore += expectedPoints;
-      });
-
-      const actualScore = taps.reduce((sum, tap) => sum + tap.points, 0);
-      expect(actualScore).toBe(expectedScore);
+      const expectedScore = Math.floor(tapsPerUser / 11) * 10 + (tapsPerUser % 11);
+      expect(playerStats!.score).toBe(expectedScore);
     }
   });
 });

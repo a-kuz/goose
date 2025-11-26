@@ -23,12 +23,23 @@ export async function roundRoutes(fastify: FastifyInstance) {
   });
 
   fastify.get<{ Params: { id: string } }>('/rounds/:id', async (request, reply) => {
+    console.log('📊 GET /rounds/:id', { 
+      roundId: request.params.id,
+      timestamp: new Date().toISOString(),
+      headers: {
+        authorization: request.headers.authorization ? 'present' : 'missing',
+        referer: request.headers.referer
+      }
+    });
+    
     const round = await RoundService.getRoundById(request.params.id);
 
     if (!round) {
+      console.error('❌ Round not found', { roundId: request.params.id });
       return reply.code(404).send({ error: 'Round not found' });
     }
 
+    console.log('✅ Round found and returned', { roundId: request.params.id });
     return round;
   });
 

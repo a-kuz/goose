@@ -8,6 +8,7 @@ export interface JWTPayload {
 
 export interface TapRequest {
   roundId: string;
+  tapId: string;
 }
 
 export interface RegisterRequest {

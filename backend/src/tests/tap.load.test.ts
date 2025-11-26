@@ -4,6 +4,11 @@ import { RoundService } from '../services/round.service';
 import { AuthService } from '../services/auth.service';
 import { prisma } from '../db';
 
+let tapCounter = 0;
+const generateTapId = (userId: string, roundId: string) => {
+  return `${userId}-${roundId}-${Date.now()}-${tapCounter++}-${Math.random().toString(36).substr(2, 9)}`;
+};
+
 describe.sequential('TapService Load Tests', () => {
   beforeEach(async () => {
     await prisma.playerStats.deleteMany({});
@@ -32,7 +37,7 @@ describe.sequential('TapService Load Tests', () => {
 
     const tapPromises = users.flatMap(user =>
       Array.from({ length: tapsPerUser }, () =>
-        TapService.processTap(user.id, round.id, user.role)
+        TapService.processTap(user.id, round.id, generateTapId(user.id, round.id), user.role)
       )
     );
 
@@ -85,7 +90,7 @@ describe.sequential('TapService Load Tests', () => {
 
     const allTapPromises = users.flatMap(user =>
       Array.from({ length: tapsPerUser }, () =>
-        TapService.processTap(user.id, round.id, user.role)
+        TapService.processTap(user.id, round.id, generateTapId(user.id, round.id), user.role)
       )
     );
 
@@ -132,7 +137,7 @@ describe.sequential('TapService Load Tests', () => {
 
     const tapPromises = allUsers.flatMap(user =>
       Array.from({ length: tapsPerUser }, () =>
-        TapService.processTap(user.id, round.id, user.role)
+        TapService.processTap(user.id, round.id, generateTapId(user.id, round.id), user.role)
       )
     );
 
@@ -194,7 +199,7 @@ describe.sequential('TapService Load Tests', () => {
     const tapBatches = [];
     for (let i = 0; i < tapsPerUser; i++) {
       const batch = users.map(user => 
-        TapService.processTap(user.id, round.id, user.role)
+        TapService.processTap(user.id, round.id, generateTapId(user.id, round.id), user.role)
       );
       tapBatches.push(Promise.all(batch));
     }
@@ -241,7 +246,7 @@ describe.sequential('TapService Load Tests', () => {
     });
 
     const tapPromises = Array.from({ length: concurrentTaps }, () =>
-      TapService.processTap(user.id, round.id, user.role)
+      TapService.processTap(user.id, round.id, generateTapId(user.id, round.id), user.role)
     );
 
     await Promise.all(tapPromises);

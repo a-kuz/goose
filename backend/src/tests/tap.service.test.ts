@@ -25,7 +25,8 @@ describe('TapService', () => {
         data: { status: 'ACTIVE' },
       });
       
-      await TapService.processTap(user.id, round.id, user.role);
+      const tapId = `${user.id}-${round.id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      await TapService.processTap(user.id, round.id, tapId, user.role);
       await TapService.finalizeRound(round.id);
       
       const stats = await prisma.playerStats.findUnique({
@@ -52,7 +53,8 @@ describe('TapService', () => {
       });
       
       for (let i = 0; i < 11; i++) {
-        await TapService.processTap(user.id, round.id, user.role);
+        const tapId = `${user.id}-${round.id}-${Date.now()}-${i}-${Math.random().toString(36).substr(2, 9)}`;
+        await TapService.processTap(user.id, round.id, tapId, user.role);
       }
       
       await TapService.finalizeRound(round.id);
@@ -80,7 +82,8 @@ describe('TapService', () => {
         data: { status: 'ACTIVE' },
       });
       
-      await TapService.processTap(user.id, round.id, user.role);
+      const tapId = `${user.id}-${round.id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      await TapService.processTap(user.id, round.id, tapId, user.role);
       await TapService.finalizeRound(round.id);
       
       const stats = await prisma.playerStats.findUnique({
@@ -101,16 +104,18 @@ describe('TapService', () => {
       const startTime = new Date(Date.now() + 60000);
       const round = await RoundService.createRound(startTime);
       
+      const tapId = `${user.id}-${round.id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       await expect(
-        TapService.processTap(user.id, round.id, user.role)
+        TapService.processTap(user.id, round.id, tapId, user.role)
       ).rejects.toThrow('Round is not active');
     });
 
     it('should throw error for non-existent round', async () => {
       const user = await AuthService.findOrCreateUser('TestUser');
       
+      const tapId = `${user.id}-non-existent-id-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       await expect(
-        TapService.processTap(user.id, 'non-existent-id', user.role)
+        TapService.processTap(user.id, 'non-existent-id', tapId, user.role)
       ).rejects.toThrow('Round not found');
     });
 
@@ -124,8 +129,10 @@ describe('TapService', () => {
         data: { status: 'ACTIVE' },
       });
       
-      await TapService.processTap(user.id, round.id, user.role);
-      await TapService.processTap(user.id, round.id, user.role);
+      const tapId1 = `${user.id}-${round.id}-${Date.now()}-1-${Math.random().toString(36).substr(2, 9)}`;
+      const tapId2 = `${user.id}-${round.id}-${Date.now()}-2-${Math.random().toString(36).substr(2, 9)}`;
+      await TapService.processTap(user.id, round.id, tapId1, user.role);
+      await TapService.processTap(user.id, round.id, tapId2, user.role);
       await TapService.finalizeRound(round.id);
       
       const updatedRound = await prisma.round.findUnique({
@@ -145,9 +152,12 @@ describe('TapService', () => {
         data: { status: 'ACTIVE' },
       });
       
-      await TapService.processTap(user.id, round.id, user.role);
-      await TapService.processTap(user.id, round.id, user.role);
-      await TapService.processTap(user.id, round.id, user.role);
+      const tapId1 = `${user.id}-${round.id}-${Date.now()}-1-${Math.random().toString(36).substr(2, 9)}`;
+      const tapId2 = `${user.id}-${round.id}-${Date.now()}-2-${Math.random().toString(36).substr(2, 9)}`;
+      const tapId3 = `${user.id}-${round.id}-${Date.now()}-3-${Math.random().toString(36).substr(2, 9)}`;
+      await TapService.processTap(user.id, round.id, tapId1, user.role);
+      await TapService.processTap(user.id, round.id, tapId2, user.role);
+      await TapService.processTap(user.id, round.id, tapId3, user.role);
       await TapService.finalizeRound(round.id);
       
       const finalStats = await prisma.playerStats.findUnique({
@@ -160,6 +170,24 @@ describe('TapService', () => {
       });
       expect(finalStats?.taps).toBe(3);
       expect(finalStats?.score).toBe(3);
+    });
+
+    it('should reject duplicate tap IDs', async () => {
+      const user = await AuthService.findOrCreateUser('DuplicateUser');
+      const startTime = new Date(Date.now() - 1000);
+      const round = await RoundService.createRound(startTime);
+      
+      await prisma.round.update({
+        where: { id: round.id },
+        data: { status: 'ACTIVE' },
+      });
+      
+      const tapId = `${user.id}-${round.id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      await TapService.processTap(user.id, round.id, tapId, user.role);
+      
+      await expect(
+        TapService.processTap(user.id, round.id, tapId, user.role)
+      ).rejects.toThrow('Tap already processed');
     });
   });
 });

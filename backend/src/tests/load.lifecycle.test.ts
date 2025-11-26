@@ -4,6 +4,11 @@ import { TapService } from '../services/tap.service';
 import { AuthService } from '../services/auth.service';
 import { prisma } from '../db';
 
+let tapCounter = 0;
+const generateTapId = (userId: string, roundId: string) => {
+  return `${userId}-${roundId}-${Date.now()}-${tapCounter++}-${Math.random().toString(36).substr(2, 9)}`;
+};
+
 describe.sequential('Round Lifecycle Load Tests', () => {
   beforeEach(async () => {
     await prisma.tap.deleteMany({});
@@ -40,7 +45,7 @@ describe.sequential('Round Lifecycle Load Tests', () => {
 
       const tapPromises = users.flatMap(user =>
         Array.from({ length: tapsPerUser }, () =>
-          TapService.processTap(user.id, round.id, user.role)
+          TapService.processTap(user.id, round.id, generateTapId(user.id, round.id), user.role)
         )
       );
 
@@ -97,7 +102,7 @@ describe.sequential('Round Lifecycle Load Tests', () => {
 
       const tapPromises = users.flatMap(user =>
         Array.from({ length: tapsPerUser }, () =>
-          TapService.processTap(user.id, round.id, user.role)
+          TapService.processTap(user.id, round.id, generateTapId(user.id, round.id), user.role)
         )
       );
 
@@ -182,7 +187,7 @@ describe.sequential('Round Lifecycle Load Tests', () => {
 
         const tapPromises = users.flatMap(user =>
           Array.from({ length: tapsPerUser }, () =>
-            TapService.processTap(user.id, round.id, user.role)
+            TapService.processTap(user.id, round.id, generateTapId(user.id, round.id), user.role)
           )
         );
 
@@ -232,7 +237,7 @@ describe.sequential('Round Lifecycle Load Tests', () => {
 
         const tapPromises = users.flatMap(user =>
           Array.from({ length: tapsPerUser }, () =>
-            TapService.processTap(user.id, round.id, user.role)
+            TapService.processTap(user.id, round.id, generateTapId(user.id, round.id), user.role)
           )
         );
 
@@ -283,7 +288,7 @@ describe.sequential('Round Lifecycle Load Tests', () => {
 
         const tapPromises = users.flatMap(user =>
           Array.from({ length: tapsPerUser }, () =>
-            TapService.processTap(user.id, round.id, user.role)
+            TapService.processTap(user.id, round.id, generateTapId(user.id, round.id), user.role)
           )
         );
 
@@ -311,7 +316,7 @@ describe.sequential('Round Lifecycle Load Tests', () => {
 
         const tapPromises = users.flatMap(user =>
           Array.from({ length: tapsPerUser }, () =>
-            TapService.processTap(user.id, round.id, user.role)
+            TapService.processTap(user.id, round.id, generateTapId(user.id, round.id), user.role)
           )
         );
 

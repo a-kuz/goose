@@ -3,26 +3,22 @@ import type { User, UserRole } from './types';
 const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 type AuthPayload = {
-  userId: string;
+  id: string;
   username: string;
   role: UserRole;
 };
 
 export class ApiClient {
-  private token: string | null = null;
-
-  constructor() {
-    this.token = localStorage.getItem('token');
-  }
-
   setToken(token: string) {
-    this.token = token;
     localStorage.setItem('token', token);
   }
 
   clearToken() {
-    this.token = null;
     localStorage.removeItem('token');
+  }
+
+  private getToken(): string | null {
+    return localStorage.getItem('token');
   }
 
   private async request<T>(
@@ -32,17 +28,24 @@ export class ApiClient {
     const headers = new Headers(options.headers);
     headers.set('Content-Type', 'application/json');
 
-    if (this.token) {
-      headers.set('Authorization', `Bearer ${this.token}`);
+    const token = this.getToken();
+    if (token) {
+      headers.set('Authorization', `Bearer ${token}`);
     }
 
-    const response = await fetch(`${API_URL}${endpoint}`, {
+    const url = `${API_URL}${endpoint}`;
+    console.log('🌐 Fetch request:', { url, method: options.method || 'GET', hasAuth: !!token });
+
+    const response = await fetch(url, {
       ...options,
       headers,
     });
 
+    console.log('📥 Fetch response:', { url, status: response.status, ok: response.ok });
+
     if (!response.ok) {
       const error = await response.json().catch(() => ({ error: 'Unknown error' }));
+      console.error('❌ Request failed:', { url, status: response.status, error });
       throw new Error(error.error || 'Request failed');
     }
 
@@ -65,11 +68,13 @@ export class ApiClient {
 
   async getMe() {
     const payload = await this.request<AuthPayload>('/auth/me');
+    console.log('👤 getMe payload:', payload);
     const user: User = {
-      id: payload.userId,
+      id: payload.id,
       username: payload.username,
       role: payload.role,
     };
+    console.log('👤 getMe user:', user);
     return user;
   }
 
@@ -88,11 +93,38 @@ export class ApiClient {
     });
   }
 
-  async tap(roundId: string) {
-    return this.request<any>('/tap', {
-      method: 'POST',
-      body: JSON.stringify({ roundId }),
-    });
+  async tap(roundId: string, tapId: string) {
+    console.log('🔑 api.tap called', { roundId, tapId });
+    
+    const token = this.getToken();
+    console.log('🔑 Token check:', { hasToken: !!token, tokenLength: token?.length });
+    
+    if (!token) {
+      console.error('❌ No token found when trying to tap!');
+      throw new Error('Authentication required');
+    }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      console.warn('⏱️ Request timeout after 5s');
+      controller.abort();
+    }, 5000);
+    
+    try {
+      console.log('📤 Sending POST /tap request...');
+      const result = await this.request<any>('/tap', {
+        method: 'POST',
+        body: JSON.stringify({ roundId, tapId }),
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      console.log('✅ api.tap response received:', result);
+      return result;
+    } catch (error) {
+      clearTimeout(timeoutId);
+      console.error('❌ api.tap error:', error);
+      throw error;
+    }
   }
 }
 

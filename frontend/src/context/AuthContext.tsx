@@ -11,6 +11,25 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+function decodeToken(token: string): User | null {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    
+    const payload = JSON.parse(atob(parts[1]));
+    console.log('🔓 Decoded token:', payload);
+    
+    return {
+      id: payload.id,
+      username: payload.username,
+      role: payload.role,
+    };
+  } catch (error) {
+    console.error('Failed to decode token:', error);
+    return null;
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -18,16 +37,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (token) {
-      api.setToken(token);
-      api.getMe()
-        .then(setUser)
-        .catch(() => {
-          api.clearToken();
-        })
-        .finally(() => setLoading(false));
-    } else {
-      setLoading(false);
+      const decoded = decodeToken(token);
+      if (decoded) {
+        console.log('✅ User from token:', decoded);
+        setUser(decoded);
+      } else {
+        api.clearToken();
+      }
     }
+    setLoading(false);
   }, []);
 
   const login = async (username: string) => {

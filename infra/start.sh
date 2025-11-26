@@ -26,7 +26,7 @@ if [ ! -f ".env" ]; then
     cat > .env << 'EOF'
 DATABASE_URL="postgresql://postgres:postgres@localhost:5432/goose?schema=public"
 JWT_SECRET="your-secret-key-change-in-production"
-PORT=3010
+PORT=3000
 ROUND_DURATION=60
 COOLDOWN_DURATION=30
 EOF
@@ -56,8 +56,8 @@ if [ $? -eq 0 ]; then
     if [ ! -f ".env" ]; then
         echo "📝 Creating frontend .env file..."
         cat > .env << 'EOF'
-VITE_API_URL=http://localhost:3010/api
-VITE_WS_URL=ws://localhost:3010/ws
+VITE_API_URL=http://localhost:3000/api
+VITE_WS_URL=ws://localhost:3000/ws
 EOF
     fi
     
@@ -73,7 +73,7 @@ EOF
     echo ""
     echo "✅ Application started successfully!"
     echo ""
-    echo "📍 Backend:  http://localhost:3010"
+    echo "📍 Backend:  http://localhost:3000"
     echo "📍 Frontend: http://localhost:5173"
     echo ""
     echo "👤 Test users:"
